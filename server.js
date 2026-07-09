@@ -3,7 +3,7 @@ const path = require('path');
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
 
 // Your Google Apps Script Web App URL (the /exec link from your deployment)
 const GS_URL = "https://script.google.com/macros/s/AKfycbx6eTl1MAfIGq-D9c3_cTsqPGyR_x5HWqrUwbnfwLIuucSsh9-rHvj6iA-1GW6B9tHWkQ/exec";
