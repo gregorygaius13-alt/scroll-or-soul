@@ -36,13 +36,26 @@
   }
   .wrap{width:100%; max-width:460px;}
 
+  .topnav-row{
+    display:flex; align-items:center; gap:10px;
+    margin-bottom:22px;
+  }
   .topnav{
     display:flex; justify-content:center; gap:6px;
-    margin-bottom:22px;
+    flex:1;
     background:rgba(255,255,255,0.04);
     border:1px solid rgba(255,255,255,0.08);
     border-radius:100px;
     padding:5px;
+  }
+  .help-btn{
+    flex-shrink:0;
+    width:36px; height:36px; border-radius:50%;
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.08);
+    color:var(--dim);
+    font-family:'Anton',sans-serif; font-size:16px;
+    cursor:pointer;
   }
   .topnav button{
     flex:1;
@@ -237,6 +250,52 @@
     border:1px solid rgba(242,183,5,0.32); border-radius:100px;
     padding:2px 7px; white-space:nowrap;
   }
+
+  /* QR tokens */
+  .qr-wrap{ position:relative; display:inline-block; }
+  .qr-logo{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    border-radius:50%; background:#fff; padding:2px;
+    box-shadow:0 0 0 2px #fff;
+  }
+  .token-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:10px;
+    margin-top:10px;
+  }
+  .token-card{
+    background:#fff; border-radius:12px; padding:12px 8px;
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+  }
+  .token-card .qr-wrap{ margin:0 auto; }
+  .token-card .token-code{
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:#0B1E3D; font-weight:700; letter-spacing:.03em;
+  }
+  .token-card .token-brand{ font-size:8.5px; color:#555; text-align:center; letter-spacing:.04em; text-transform:uppercase; }
+  @media print{
+    body *{ visibility:hidden; }
+    #printArea, #printArea *{ visibility:visible; }
+    #printArea{ position:absolute; top:0; left:0; width:100%; }
+  }
+
+  /* tutorial */
+  .tutorial-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.78);
+    z-index:10000; display:none; align-items:center; justify-content:center; padding:20px;
+  }
+  .tutorial-card{
+    background:var(--navy-card); border:1px solid rgba(255,255,255,0.1);
+    border-radius:18px; padding:26px 22px; max-width:400px; width:100%;
+    max-height:85vh; overflow-y:auto;
+  }
+  .tutorial-card h2{
+    font-family:'Anton',sans-serif; font-weight:400; font-size:24px; color:var(--gold);
+    margin-bottom:6px; text-transform:uppercase;
+  }
+  .tutorial-card p.sub{ color:var(--dim); font-size:13px; margin-bottom:16px; }
+
+  /* qr scan */
+  #qrReaderWrap{ margin-top:14px; }
+  #qr-reader{ border-radius:12px; overflow:hidden; }
   .qcount{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--dim);}
   .signal{ display:flex; gap:4px; }
   .signal .dot{ width:9px; height:9px; border-radius:50%; background:rgba(255,255,255,0.15); transition:.25s;}
@@ -464,14 +523,33 @@
   .podium .avatar-circle, .podium .avatar-initial{ width:46px; height:46px; font-size:19px; margin:0 auto 4px; }
   .podium .p1 .avatar-circle, .podium .p1 .avatar-initial{ width:58px; height:58px; font-size:24px; }
 </style>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
 <div class="wrap">
 
-  <div class="topnav">
-    <button data-tab="play" class="active">Play</button>
-    <button data-tab="board">Leaderboard</button>
-    <button data-tab="admin">Admin</button>
+  <div class="tutorial-overlay" id="tutorialOverlay">
+    <div class="tutorial-card">
+      <h2>How to Play</h2>
+      <p class="sub">Scroll or Soul — quick start guide</p>
+      <ol class="transfer-steps">
+        <li>Pick a <b>Player ID and 4-digit PIN</b> — that's your account. Use the same one every day to keep your running score.</li>
+        <li>Get a <b>token</b> — buy one at the church premises, or transfer to the admin and share proof on WhatsApp.</li>
+        <li>Enter your <b>access code</b> (or scan its QR code) to unlock that day's quiz — one token = one play.</li>
+        <li>Answer before the timer runs out. Get 3 in a row for a <b>streak bonus</b> point!</li>
+        <li>After the quiz, try your <b>free spin</b> for a rare chance at a bonus token — then check the Leaderboard to see how you and your zone rank.</li>
+      </ol>
+      <button class="btn" id="tutorialGotIt">Got it, let's play!</button>
+    </div>
+  </div>
+
+  <div class="topnav-row">
+    <div class="topnav">
+      <button data-tab="play" class="active">Play</button>
+      <button data-tab="board">Leaderboard</button>
+      <button data-tab="admin">Admin</button>
+    </div>
+    <button id="helpBtn" class="help-btn" title="How to Play">?</button>
   </div>
 
   <div class="brand">
@@ -544,7 +622,13 @@
         <input type="text" id="codeInput" placeholder="e.g. SMCC-7F2K" maxlength="12">
         <div class="error-msg" id="codeError"></div>
         <button class="btn" id="submitCode">Unlock Today's Game</button>
+        <button class="btn secondary" id="scanQrBtn" style="margin-top:10px;">📷 Scan QR Code Instead</button>
         <div class="helper">Access codes are sold at the church premises during Youth Week. Each token = one play.</div>
+
+        <div id="qrReaderWrap" style="display:none;">
+          <div id="qr-reader"></div>
+          <button class="btn secondary" id="closeQrBtn" style="margin-top:10px;">Cancel Scan</button>
+        </div>
 
         <div class="divider-row">Don't have a code yet?</div>
         <button class="btn transfer" id="goTransferBtn">Transfer to Admin to Get Token</button>
@@ -1063,6 +1147,7 @@ document.getElementById('createAccountBtn').addEventListener('click', async ()=>
 });
 
 document.getElementById('switchAccountBtn').addEventListener('click', ()=>{
+  stopQrScanner();
   currentAccount = null;
   document.getElementById('playerIdInput').value='';
   document.getElementById('playerPinInput').value='';
@@ -1155,6 +1240,7 @@ document.getElementById('submitCode').addEventListener('click', async ()=>{
   state.questions = [COMPULSORY_QUESTION, ...(QUESTION_SETS[ACTIVE_DAY] || QUESTION_SETS[1])];
   state.qIndex = 0; state.score = 0; state.streak = 0;
 
+  stopQrScanner();
   document.getElementById('entry-view').style.display='none';
   document.getElementById('quiz-view').style.display='block';
   buildSignal();
@@ -1494,6 +1580,15 @@ function showReaction(isCorrect, streak){
 }
 
 // ---------------- avatars ----------------
+function qrWithLogoHTML(code, size){
+  const logoSize = Math.round(size*0.26);
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&ecc=H&data=${encodeURIComponent(code)}`;
+  return `<div class="qr-wrap" style="width:${size}px;height:${size}px;">
+    <img src="${qrUrl}" width="${size}" height="${size}" style="display:block;border-radius:8px;">
+    <img class="qr-logo" src="/st-monica-logo.png" width="${logoSize}" height="${logoSize}">
+  </div>`;
+}
+
 function initialsColor(name){
   let hash = 0;
   const str = name || '?';
@@ -1606,14 +1701,26 @@ document.getElementById('genBtn').addEventListener('click', async ()=>{
   }
 
   resEl.innerHTML = `<b>${n} codes ready to hand out</b> (works even if saving fails):<br>` +
-    `<div class="code-list" style="margin-top:8px;">${created.map(c=>`<div class="code-row"><span>${c}</span></div>`).join('')}</div>`;
+    `<div id="printArea" class="token-grid">${created.map(c=>`
+      <div class="token-card">
+        ${qrWithLogoHTML(c, 120)}
+        <div class="token-code">${c}</div>
+        <div class="token-brand">St Monica CC · Youth Week</div>
+      </div>`).join('')}</div>` +
+    `<button class="btn secondary" id="printTokensBtn" style="margin-top:12px;">🖨️ Print These Tokens</button>`;
+
+  document.getElementById('printTokensBtn').addEventListener('click', ()=> window.print());
 
   // Best-effort: also record them so the admin list below can show status later.
   const issued = await getJSON('stw:issuedcodes', {});
   created.forEach(c=>{ issued[c] = { generatedAt: new Date().toISOString() }; });
   const savedOk = await setJSON('stw:issuedcodes', issued);
   if(!savedOk){
-    resEl.innerHTML += `<div style="color:#FF8A80; margin-top:8px;">Note: couldn't save this batch to the admin record (storage is having issues) — but the codes above are still valid and safe to print/hand out.</div>`;
+    const warnEl = document.createElement('div');
+    warnEl.style.color = '#FF8A80';
+    warnEl.style.marginTop = '8px';
+    warnEl.textContent = "Note: couldn't save this batch to the admin record (storage is having issues) — but the codes above are still valid and safe to print/hand out.";
+    resEl.appendChild(warnEl);
   }
   refreshAdmin();
 });
@@ -1845,8 +1952,58 @@ async function markSpinWin(){
   }catch(e){ console.error('markSpinWin failed:', e); }
 }
 
+// ---------------- tutorial ----------------
+function maybeShowTutorial(){
+  try{
+    if(!localStorage.getItem('stw_seen_tutorial_v1')){
+      document.getElementById('tutorialOverlay').style.display = 'flex';
+    }
+  }catch(e){ /* localStorage unavailable — skip silently */ }
+}
+document.getElementById('tutorialGotIt').addEventListener('click', ()=>{
+  document.getElementById('tutorialOverlay').style.display = 'none';
+  try{ localStorage.setItem('stw_seen_tutorial_v1', '1'); }catch(e){}
+});
+document.getElementById('helpBtn').addEventListener('click', ()=>{
+  document.getElementById('tutorialOverlay').style.display = 'flex';
+});
+
+// ---------------- QR code scanning ----------------
+let qrScanner = null;
+
+document.getElementById('scanQrBtn').addEventListener('click', ()=>{
+  document.getElementById('qrReaderWrap').style.display = 'block';
+  if(typeof Html5Qrcode === 'undefined'){
+    document.getElementById('qr-reader').innerHTML = '<div class="helper">Camera scanning isn\'t available right now — please type your code above instead.</div>';
+    return;
+  }
+  qrScanner = new Html5Qrcode("qr-reader");
+  qrScanner.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 200 },
+    (decodedText)=>{
+      document.getElementById('codeInput').value = decodedText.trim().toUpperCase();
+      stopQrScanner();
+      vibrate(30);
+    },
+    ()=>{ /* per-frame scan failure — expected constantly while aiming, ignore */ }
+  ).catch(()=>{
+    document.getElementById('qr-reader').innerHTML = '<div class="helper">Couldn\'t access the camera — check your browser\'s camera permission, or type your code above instead.</div>';
+  });
+});
+
+function stopQrScanner(){
+  if(qrScanner){
+    qrScanner.stop().then(()=>{ qrScanner.clear(); qrScanner = null; }).catch(()=>{ qrScanner = null; });
+  }
+  document.getElementById('qrReaderWrap').style.display = 'none';
+  document.getElementById('qr-reader').innerHTML = '';
+}
+document.getElementById('closeQrBtn').addEventListener('click', stopQrScanner);
+
 // ---------------- init ----------------
 refreshDayChip();
+maybeShowTutorial();
 </script>
 </body>
 </html>
